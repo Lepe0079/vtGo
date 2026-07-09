@@ -1,0 +1,14 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "vtGo",
+  "outputfilename": "vtGo",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Dan Lepe",
+    "email": "lepedaniel8822@gmail.com"
+  },
+  "build:tags": "webkit2_41"
+}
