@@ -2,13 +2,28 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
+// These tests hit a real, user-configured site over the network, so baseURL
+// isn't hardcoded here either: set VTGO_TEST_BASE_URL to run them locally.
+func TestMain(m *testing.M) {
+	baseURL = os.Getenv("VTGO_TEST_BASE_URL")
+	os.Exit(m.Run())
+}
+
+func skipIfNoBaseURL(t *testing.T) {
+	if baseURL == "" {
+		t.Skip("VTGO_TEST_BASE_URL not set; skipping live network test")
+	}
+}
+
 func TestSearch(t *testing.T) {
+	skipIfNoBaseURL(t)
 	albums, err := SearchAlbum("zelda")
 	if err != nil {
 		t.Fatal("search error:", err)
@@ -27,6 +42,7 @@ func TestSearch(t *testing.T) {
 }
 
 func TestGetAlbum(t *testing.T) {
+	skipIfNoBaseURL(t)
 	data, err := GetAlbumData("the-legend-of-zelda-ocarina-of-time")
 	if err != nil {
 		t.Fatal("album error:", err)
@@ -41,7 +57,8 @@ func TestGetAlbum(t *testing.T) {
 }
 
 func TestAlbumDebug(t *testing.T) {
-	doc, err := fetchDoc("https://downloads.khinsider.com/game-soundtracks/album/the-legend-of-zelda-ocarina-of-time")
+	skipIfNoBaseURL(t)
+	doc, err := fetchDoc(baseURL + "/game-soundtracks/album/the-legend-of-zelda-ocarina-of-time")
 	if err != nil {
 		t.Fatal(err)
 	}
