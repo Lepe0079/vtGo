@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, FormEvent, ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, X, Clock, Music2, AlertCircle } from 'lucide-react'
+import logo from '../assets/images/logo-universal.png'
 import {
   SearchAlbums,
   GetDownloadHistory,
@@ -96,6 +97,10 @@ export default function Home() {
       {/* Search Header */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="px-6 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <img src={logo} alt="vtGo" className="h-6 w-6 rounded" />
+            <span className="font-semibold text-sm">vtGo</span>
+          </div>
           <form onSubmit={handleSubmit} className="relative max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
