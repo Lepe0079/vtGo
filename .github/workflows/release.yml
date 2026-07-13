@@ -22,9 +22,6 @@ jobs:
           - os: windows-latest
             wails_platform: windows/amd64
             artifact_name: vtGo-windows-amd64
-          - os: macos-latest
-            wails_platform: darwin/universal
-            artifact_name: vtGo-macos-universal
           - os: ubuntu-latest
             wails_platform: linux/amd64
             artifact_name: vtGo-linux-amd64
@@ -60,10 +57,6 @@ jobs:
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: Compress-Archive -Path build/bin/vtGo.exe -DestinationPath vtGo-windows-amd64.zip
-
-      - name: Package (macOS)
-        if: runner.os == 'macOS'
-        run: cd build/bin && zip -r ../../vtGo-macos-universal.zip vtGo.app
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
