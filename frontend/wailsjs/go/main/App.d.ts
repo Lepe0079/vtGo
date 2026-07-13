@@ -16,6 +16,8 @@ export function GetAlbum(arg1:string):Promise<main.ApiResponse_main_AlbumData_>;
 
 export function GetAlbumDownloadedTracks(arg1:string):Promise<Array<string>>;
 
+export function GetBaseURL():Promise<string>;
+
 export function GetDownloadHistory():Promise<Array<main.DownloadedAlbum>>;
 
 export function GetFolder():Promise<string>;
@@ -27,3 +29,5 @@ export function RecordAlbumDownload(arg1:main.DownloadedAlbum):Promise<void>;
 export function SearchAlbums(arg1:string):Promise<main.ApiResponse___main_Album_>;
 
 export function SelectFolder():Promise<string>;
+
+export function SetBaseURL(arg1:string):Promise<void>;

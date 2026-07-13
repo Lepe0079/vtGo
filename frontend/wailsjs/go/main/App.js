@@ -30,6 +30,10 @@ export function GetAlbumDownloadedTracks(arg1) {
   return window['go']['main']['App']['GetAlbumDownloadedTracks'](arg1);
 }
 
+export function GetBaseURL() {
+  return window['go']['main']['App']['GetBaseURL']();
+}
+
 export function GetDownloadHistory() {
   return window['go']['main']['App']['GetDownloadHistory']();
 }
@@ -52,4 +56,8 @@ export function SearchAlbums(arg1) {
 
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SetBaseURL(arg1) {
+  return window['go']['main']['App']['SetBaseURL'](arg1);
 }

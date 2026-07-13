@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -37,12 +39,38 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.store = NewStore()
 
+	if stored := a.store.GetBaseURL(); stored != "" {
+		baseURL = stored
+	}
+
 	home, _ := os.UserHomeDir()
 	a.dlFolder = filepath.Join(home, "Downloads")
 }
 
 func nowMillis() int64 {
 	return time.Now().UnixMilli()
+}
+
+// --- Base URL ---
+
+func (a *App) GetBaseURL() string {
+	return a.store.GetBaseURL()
+}
+
+func (a *App) SetBaseURL(rawURL string) error {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(rawURL), "/")
+
+	parsed, err := url.ParseRequestURI(trimmed)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("please enter a valid URL, e.g. https://example.com")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("URL must use http or https")
+	}
+
+	baseURL = trimmed
+	a.store.SetBaseURL(trimmed)
+	return nil
 }
 
 // --- Search ---

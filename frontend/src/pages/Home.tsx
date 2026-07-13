@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, FormEvent, ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, X, Clock, Music2, AlertCircle } from 'lucide-react'
+import { Search, X, Clock, Music2, AlertCircle, Settings } from 'lucide-react'
 import logo from '../assets/images/logo-universal.png'
 import {
   SearchAlbums,
@@ -18,7 +18,12 @@ interface LocationState {
   albums?: main.Album[]
 }
 
-export default function Home() {
+interface HomeProps {
+  baseUrl: string
+  onOpenBaseUrlSettings: () => void
+}
+
+export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const state = location.state as LocationState | null
@@ -100,6 +105,14 @@ export default function Home() {
           <div className="flex items-center gap-2 mb-3">
             <img src={logo} alt="vtGo" className="h-6 w-6 rounded" />
             <span className="font-semibold text-sm">vtGo</span>
+            <button
+              type="button"
+              onClick={onOpenBaseUrlSettings}
+              title={`Change base URL (currently: ${baseUrl})`}
+              className="ml-auto p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
           </div>
           <form onSubmit={handleSubmit} className="relative max-w-md">
             <div className="relative">

@@ -25,6 +25,7 @@ type SearchHistoryItem struct {
 type storeData struct {
 	DownloadHistory []DownloadedAlbum   `json:"downloadHistory"`
 	SearchHistory   []SearchHistoryItem `json:"searchHistory"`
+	BaseURL         string              `json:"baseURL"`
 }
 
 type Store struct {
@@ -134,5 +135,14 @@ func (s *Store) AddSearchHistory(query string) []SearchHistoryItem {
 
 func (s *Store) ClearSearchHistory() {
 	s.data.SearchHistory = []SearchHistoryItem{}
+	s.save()
+}
+
+func (s *Store) GetBaseURL() string {
+	return s.data.BaseURL
+}
+
+func (s *Store) SetBaseURL(url string) {
+	s.data.BaseURL = url
 	s.save()
 }
