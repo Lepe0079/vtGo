@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, FormEvent, ChangeEvent } from 'react'
+import { useState, useEffect, useMemo, useRef, FormEvent, ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, X, Clock, Music2, AlertCircle, Settings } from 'lucide-react'
-import logo from '../assets/images/logo-universal.png'
+import { Search, X, Clock, Music2, AlertCircle, Settings, ArrowUpDown } from 'lucide-react'
 import {
   SearchAlbums,
   GetDownloadHistory,
@@ -12,6 +11,7 @@ import {
 import { main } from '../../wailsjs/go/models'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
+type SortBy = 'title' | 'date' | 'system'
 
 interface LocationState {
   search?: string
@@ -35,6 +35,7 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
   const [downloadHistory, setDownloadHistory] = useState<main.DownloadedAlbum[]>([])
   const [searchHistory, setSearchHistory] = useState<main.SearchHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [sortBy, setSortBy] = useState<SortBy>('title')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -44,6 +45,22 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
 
   const formatDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+  const sortedAlbums = useMemo(() => {
+    const sorted = [...albums]
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case 'date':
+          return (parseInt(a.year, 10) || 0) - (parseInt(b.year, 10) || 0)
+        case 'system':
+          return (a.platforms?.[0] ?? '').localeCompare(b.platforms?.[0] ?? '')
+        case 'title':
+        default:
+          return a.title.localeCompare(b.title)
+      }
+    })
+    return sorted
+  }, [albums, sortBy])
 
   const performSearch = async (query: string) => {
     if (!query.trim()) return
@@ -102,71 +119,69 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
       {/* Search Header */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="px-6 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <img src={logo} alt="vtGo" className="h-6 w-6 rounded" />
-            <span className="font-semibold text-sm">vtGo</span>
+          <div className="flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="relative flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+                  onFocus={() => searchHistory.length > 0 && setShowHistory(true)}
+                  onBlur={() => setTimeout(() => setShowHistory(false), 200)}
+                  placeholder="What do you want to download?"
+                  className="w-full h-10 pl-10 pr-10 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted transition-colors"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {/* Search History Dropdown */}
+              {showHistory && searchHistory.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-30">
+                  <div className="flex items-center justify-between px-4 py-2 bg-muted/30">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Recent Searches
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearSearchHistory}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                  {searchHistory.map((item, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-left transition-colors"
+                      onClick={() => handleHistoryClick(item.query)}
+                    >
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm truncate">{item.query}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </form>
             <button
               type="button"
               onClick={onOpenBaseUrlSettings}
               title={`Change base URL (currently: ${baseUrl})`}
-              className="ml-auto p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <Settings className="h-4 w-4" />
             </button>
           </div>
-          <form onSubmit={handleSubmit} className="relative max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={search}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-                onFocus={() => searchHistory.length > 0 && setShowHistory(true)}
-                onBlur={() => setTimeout(() => setShowHistory(false), 200)}
-                placeholder="What do you want to download?"
-                className="w-full h-10 pl-10 pr-10 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted transition-colors"
-                >
-                  <X className="h-3 w-3 text-muted-foreground" />
-                </button>
-              )}
-            </div>
-
-            {/* Search History Dropdown */}
-            {showHistory && searchHistory.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-30">
-                <div className="flex items-center justify-between px-4 py-2 bg-muted/30">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Recent Searches
-                  </span>
-                  <button
-                    type="button"
-                    onClick={clearSearchHistory}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Clear all
-                  </button>
-                </div>
-                {searchHistory.map((item, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-left transition-colors"
-                    onClick={() => handleHistoryClick(item.query)}
-                  >
-                    <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate">{item.query}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </form>
         </div>
       </div>
 
@@ -199,9 +214,23 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
         {/* Results */}
         {status === 'done' && albums.length > 0 && (
           <section>
-            <h2 className="text-2xl font-bold mb-4">Search Results</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Search Results</h2>
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <select
+                  value={sortBy}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setSortBy(e.target.value as SortBy)}
+                  className="h-8 pl-3 pr-8 rounded-full bg-muted/50 border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                >
+                  <option value="title">Title</option>
+                  <option value="date">Date</option>
+                  <option value="system">System</option>
+                </select>
+              </div>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {albums.map((album) => (
+              {sortedAlbums.map((album) => (
                 <button
                   key={album.vtName}
                   onClick={() => navigate(`/album/${album.vtName}`, { state: { search, albums } })}
