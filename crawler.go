@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -139,8 +140,11 @@ func GetAlbumData(vtname string) (AlbumData, error) {
 		}
 	})
 
-	// Tracks: rows where second cell is a track number (e.g. "1.")
-	// and third cell has an <a href> pointing into the album
+	// Tracks: rows have a track-number cell (e.g. "1.") followed by a cell
+	// with an <a href> pointing into the album. The track-number cell isn't
+	// always at a fixed index: multi-disc albums (e.g. Ace Combat 5) insert
+	// an extra "CD" column before it, so we search for it instead of
+	// assuming a column position.
 	tracks := []Track{}
 	seen := make(map[string]bool)
 
@@ -150,14 +154,24 @@ func GetAlbumData(vtname string) (AlbumData, error) {
 			return
 		}
 
-		// Second cell must be a track number like "1." (first cell is always empty)
-		trackNum := strings.TrimSpace(cells.Eq(1).Text())
-		if !strings.HasSuffix(trackNum, ".") {
+		trackIdx := -1
+		cells.EachWithBreak(func(i int, cell *goquery.Selection) bool {
+			text := strings.TrimSpace(cell.Text())
+			if text == "" || !strings.HasSuffix(text, ".") {
+				return true
+			}
+			if _, err := strconv.Atoi(strings.TrimSuffix(text, ".")); err != nil {
+				return true
+			}
+			trackIdx = i
+			return false
+		})
+		if trackIdx == -1 || trackIdx+1 >= cells.Length() {
 			return
 		}
 
-		// Third cell has the track title and href
-		a := cells.Eq(2).Find("a").First()
+		// Next cell has the track title and href
+		a := cells.Eq(trackIdx + 1).Find("a").First()
 		href, exists := a.Attr("href")
 		if !exists || href == "" {
 			return
