@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -33,6 +34,8 @@ type storeData struct {
 	DownloadHistory []DownloadedAlbum   `json:"downloadHistory"`
 	SearchHistory   []SearchHistoryItem `json:"searchHistory"`
 	Bookmarks       []BookmarkedAlbum   `json:"bookmarks"`
+	Collection      []CollectionAlbum   `json:"collection"`
+	IgnoredFolders  []string            `json:"ignoredFolders"`
 	BaseURL         string              `json:"baseURL"`
 }
 
@@ -71,6 +74,12 @@ func (s *Store) load() {
 	}
 	if s.data.Bookmarks == nil {
 		s.data.Bookmarks = []BookmarkedAlbum{}
+	}
+	if s.data.Collection == nil {
+		s.data.Collection = []CollectionAlbum{}
+	}
+	if s.data.IgnoredFolders == nil {
+		s.data.IgnoredFolders = []string{}
 	}
 }
 
@@ -189,5 +198,92 @@ func (s *Store) RemoveBookmark(vtName string) {
 		}
 	}
 	s.data.Bookmarks = filtered
+	s.save()
+}
+
+func (s *Store) GetCollection() []CollectionAlbum {
+	return s.data.Collection
+}
+
+func (s *Store) AddCollectionEntries(entries []CollectionAlbum) {
+	if len(entries) == 0 {
+		return
+	}
+	existing := make(map[string]bool, len(s.data.Collection))
+	for _, c := range s.data.Collection {
+		existing[c.LocalPath] = true
+	}
+	for _, e := range entries {
+		if !existing[e.LocalPath] {
+			s.data.Collection = append([]CollectionAlbum{e}, s.data.Collection...)
+			existing[e.LocalPath] = true
+		}
+	}
+	s.save()
+}
+
+func (s *Store) ResolveCollectionMatch(localPath, vtName, name string, thumbnail *string) {
+	for i, c := range s.data.Collection {
+		if c.LocalPath == localPath {
+			s.data.Collection[i].Matched = true
+			s.data.Collection[i].VtName = vtName
+			s.data.Collection[i].Name = name
+			s.data.Collection[i].Thumbnail = thumbnail
+			s.save()
+			return
+		}
+	}
+}
+
+func (s *Store) RemoveCollectionEntry(localPath string) {
+	filtered := make([]CollectionAlbum, 0, len(s.data.Collection))
+	for _, c := range s.data.Collection {
+		if c.LocalPath != localPath {
+			filtered = append(filtered, c)
+		}
+	}
+	s.data.Collection = filtered
+	s.save()
+}
+
+func (s *Store) IsInCollection(vtName string) bool {
+	for _, c := range s.data.Collection {
+		if c.Matched && c.VtName == vtName {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) AddToCollection(album CollectionAlbum) {
+	for _, c := range s.data.Collection {
+		if c.LocalPath == album.LocalPath {
+			return
+		}
+	}
+	s.data.Collection = append([]CollectionAlbum{album}, s.data.Collection...)
+	s.save()
+}
+
+func (s *Store) RemoveFromCollection(vtName string) {
+	filtered := make([]CollectionAlbum, 0, len(s.data.Collection))
+	for _, c := range s.data.Collection {
+		if c.VtName != vtName {
+			filtered = append(filtered, c)
+		}
+	}
+	s.data.Collection = filtered
+	s.save()
+}
+
+func (s *Store) GetIgnoredFolders() []string {
+	return s.data.IgnoredFolders
+}
+
+func (s *Store) IgnoreFolder(path string) {
+	if slices.Contains(s.data.IgnoredFolders, path) {
+		return
+	}
+	s.data.IgnoredFolders = append(s.data.IgnoredFolders, path)
 	s.save()
 }

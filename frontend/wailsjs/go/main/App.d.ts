@@ -6,9 +6,13 @@ export function AddBookmark(arg1:main.BookmarkedAlbum):Promise<void>;
 
 export function AddSearchHistory(arg1:string):Promise<Array<main.SearchHistoryItem>>;
 
+export function AddToCollection(arg1:main.CollectionAlbum):Promise<void>;
+
 export function ClearDownloadHistory():Promise<void>;
 
 export function ClearSearchHistory():Promise<void>;
+
+export function CountAudioFiles(arg1:string):Promise<number>;
 
 export function DownloadFiles(arg1:string,arg2:Array<string>):Promise<void>;
 
@@ -22,20 +26,40 @@ export function GetBaseURL():Promise<string>;
 
 export function GetBookmarks():Promise<Array<main.BookmarkedAlbum>>;
 
+export function GetCollection():Promise<Array<main.CollectionAlbum>>;
+
 export function GetDownloadHistory():Promise<Array<main.DownloadedAlbum>>;
 
 export function GetFolder():Promise<string>;
 
+export function GetLibraryFolder():Promise<string>;
+
 export function GetSearchHistory():Promise<Array<main.SearchHistoryItem>>;
 
+export function IgnoreLibraryFolder(arg1:string):Promise<void>;
+
 export function IsBookmarked(arg1:string):Promise<boolean>;
+
+export function IsInCollection(arg1:string):Promise<boolean>;
 
 export function RecordAlbumDownload(arg1:main.DownloadedAlbum):Promise<void>;
 
 export function RemoveBookmark(arg1:string):Promise<void>;
 
+export function RemoveCollectionEntry(arg1:string):Promise<void>;
+
+export function RemoveFromCollection(arg1:string):Promise<void>;
+
+export function ResolveCollectionMatch(arg1:string,arg2:main.Album):Promise<void>;
+
+export function ScanLibrary():Promise<main.ApiResponse___main_CollectionAlbum_>;
+
 export function SearchAlbums(arg1:string):Promise<main.ApiResponse___main_Album_>;
 
+export function SelectAlbumFolder():Promise<string>;
+
 export function SelectFolder():Promise<string>;
+
+export function SelectLibraryFolder():Promise<string>;
 
 export function SetBaseURL(arg1:string):Promise<void>;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, MouseEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Download, Check, FolderOpen, Image, FolderPlus, Bookmark } from 'lucide-react'
+import { ArrowLeft, Download, Check, FolderOpen, Image, FolderPlus, Bookmark, Library } from 'lucide-react'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import {
   GetAlbum,
@@ -13,6 +13,11 @@ import {
   IsBookmarked,
   AddBookmark,
   RemoveBookmark,
+  IsInCollection,
+  AddToCollection,
+  RemoveFromCollection,
+  SelectAlbumFolder,
+  CountAudioFiles,
 } from '../../wailsjs/go/main/App'
 import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
@@ -39,6 +44,7 @@ export default function Album() {
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
   const [downloadedTracks, setDownloadedTracks] = useState<Set<string>>(new Set())
   const [bookmarked, setBookmarked] = useState<boolean>(false)
+  const [inCollection, setInCollection] = useState<boolean>(false)
 
   const fetchAlbum = async (title: string) => {
     setLoading(true)
@@ -73,6 +79,10 @@ export default function Album() {
       IsBookmarked(vtname)
         .then(setBookmarked)
         .catch((err: Error) => console.error('Failed to load bookmark state:', err))
+
+      IsInCollection(vtname)
+        .then(setInCollection)
+        .catch((err: Error) => console.error('Failed to load collection state:', err))
     }
   }, [vtname])
 
@@ -194,6 +204,35 @@ export default function Album() {
     }
   }
 
+  const toggleCollection = async () => {
+    if (!vtname || !album) return
+
+    if (inCollection) {
+      RemoveFromCollection(vtname).catch(console.error)
+      setInCollection(false)
+      return
+    }
+
+    try {
+      const folder = await SelectAlbumFolder()
+      if (!folder) return
+      const trackCount = await CountAudioFiles(folder)
+      await AddToCollection({
+        localPath: folder,
+        folderName: folder.split('/').pop() || album.name,
+        trackCount,
+        addedAt: Date.now(),
+        matched: true,
+        vtName: vtname,
+        name: album.name,
+        thumbnail: album.albumArt[0] || undefined,
+      })
+      setInCollection(true)
+    } catch (err) {
+      console.error('Failed to add to collection:', err)
+    }
+  }
+
   const trackCount = album?.tracks.filter((t) => t.links.download).length || 0
   const downloadedCount = downloadedTracks.size
 
@@ -254,6 +293,17 @@ export default function Album() {
                 <Bookmark
                   className={`h-6 w-6 transition-colors ${
                     bookmarked ? 'fill-primary text-primary' : 'text-muted-foreground'
+                  }`}
+                />
+              </button>
+              <button
+                onClick={toggleCollection}
+                title={inCollection ? 'Remove from Collection' : 'Add to Collection'}
+                className="p-2 rounded-full hover:bg-background/50 transition-colors shrink-0"
+              >
+                <Library
+                  className={`h-6 w-6 transition-colors ${
+                    inCollection ? 'fill-primary text-primary' : 'text-muted-foreground'
                   }`}
                 />
               </button>

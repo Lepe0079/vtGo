@@ -1,6 +1,20 @@
 import { useState, useEffect, useMemo, useRef, FormEvent, ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, X, Clock, Music2, AlertCircle, Settings, ArrowUpDown, Bookmark } from 'lucide-react'
+import {
+  Search,
+  X,
+  Clock,
+  Music2,
+  AlertCircle,
+  Settings,
+  ArrowUpDown,
+  Bookmark,
+  Library,
+  FolderOpen,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react'
 import {
   SearchAlbums,
   GetDownloadHistory,
@@ -8,12 +22,18 @@ import {
   AddSearchHistory,
   ClearSearchHistory,
   GetBookmarks,
+  GetCollection,
+  GetLibraryFolder,
+  SelectLibraryFolder,
+  ScanLibrary,
+  RemoveCollectionEntry,
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
+import ResolveMatchDialog from '../components/ResolveMatchDialog'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
 type SortBy = 'title' | 'date' | 'system'
-type LibraryTab = 'recent' | 'bookmarks'
+type LibraryTab = 'recent' | 'bookmarks' | 'collection'
 
 interface LocationState {
   search?: string
@@ -36,6 +56,10 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
   const [error, setError] = useState<string>('')
   const [downloadHistory, setDownloadHistory] = useState<main.DownloadedAlbum[]>([])
   const [bookmarks, setBookmarks] = useState<main.BookmarkedAlbum[]>([])
+  const [collection, setCollection] = useState<main.CollectionAlbum[]>([])
+  const [libraryFolder, setLibraryFolder] = useState<string>('')
+  const [scanning, setScanning] = useState(false)
+  const [resolveEntry, setResolveEntry] = useState<main.CollectionAlbum | null>(null)
   const [searchHistory, setSearchHistory] = useState<main.SearchHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [sortBy, setSortBy] = useState<SortBy>('title')
@@ -45,8 +69,49 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
   useEffect(() => {
     GetDownloadHistory().then(setDownloadHistory).catch(console.error)
     GetBookmarks().then(setBookmarks).catch(console.error)
+    GetCollection().then(setCollection).catch(console.error)
+    GetLibraryFolder().then(setLibraryFolder).catch(console.error)
     GetSearchHistory().then(setSearchHistory).catch(console.error)
   }, [])
+
+  const changeLibraryFolder = () => {
+    SelectLibraryFolder().then(setLibraryFolder).catch(console.error)
+  }
+
+  const scanLibrary = async () => {
+    setScanning(true)
+    try {
+      const result = await ScanLibrary()
+      if (result.success) {
+        setCollection(result.data ?? [])
+      } else {
+        console.error(result.error)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const removeCollectionEntry = (localPath: string) => {
+    RemoveCollectionEntry(localPath).catch(console.error)
+    setCollection((prev) => prev.filter((c) => c.localPath !== localPath))
+  }
+
+  const handleCollectionCardClick = (album: main.CollectionAlbum) => {
+    if (album.matched) {
+      navigate(`/album/${album.vtName}`)
+    } else {
+      setResolveEntry(album)
+    }
+  }
+
+  const handleResolved = () => {
+    if (!resolveEntry) return
+    GetCollection().then(setCollection).catch(console.error)
+    setResolveEntry(null)
+  }
 
   const formatDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -283,7 +348,7 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
         )}
 
         {/* Welcome / idle */}
-        {status === 'idle' && downloadHistory.length === 0 && bookmarks.length === 0 && (
+        {status === 'idle' && downloadHistory.length === 0 && bookmarks.length === 0 && collection.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Search className="h-16 w-16 text-muted-foreground/50 mb-4" />
             <h2 className="text-xl font-semibold mb-2">Search for soundtracks</h2>
@@ -291,8 +356,10 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
           </div>
         )}
 
-        {/* Library tabs (Recently Downloaded / Bookmarked) */}
-        {(downloadHistory.length > 0 || bookmarks.length > 0) && status !== 'loading' && albums.length === 0 && (
+        {/* Library tabs (Recently Downloaded / Bookmarked / Collection) */}
+        {(downloadHistory.length > 0 || bookmarks.length > 0 || collection.length > 0) &&
+          status !== 'loading' &&
+          albums.length === 0 && (
           <section>
             <div className="flex items-center gap-2 mb-4">
               <button
@@ -316,6 +383,17 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
                 }`}
               >
                 Bookmarked
+              </button>
+              <button
+                type="button"
+                onClick={() => setLibraryTab('collection')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  libraryTab === 'collection'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Collection
               </button>
             </div>
 
@@ -388,8 +466,96 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
                 </div>
               )
             )}
+
+            {libraryTab === 'collection' && (
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
+                  <span className="text-muted-foreground truncate max-w-xs" title={libraryFolder}>
+                    {libraryFolder}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={changeLibraryFolder}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/50 hover:bg-muted transition-colors text-xs font-medium"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    Change Folder
+                  </button>
+                  <button
+                    type="button"
+                    onClick={scanLibrary}
+                    disabled={scanning}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs font-medium disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${scanning ? 'animate-spin' : ''}`} />
+                    {scanning ? 'Scanning...' : 'Scan'}
+                  </button>
+                </div>
+
+                {collection.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {collection.map((album) => (
+                      <div key={album.localPath} className="group relative p-4 rounded-lg bg-card/50 hover:bg-card transition-all duration-200">
+                        <button
+                          type="button"
+                          onClick={() => removeCollectionEntry(album.localPath)}
+                          title="Remove from collection"
+                          className="absolute top-1 left-1 z-10 p-1 rounded-full bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                        <button type="button" onClick={() => handleCollectionCardClick(album)} className="w-full text-left">
+                          <div className="relative aspect-square mb-3">
+                            {album.matched && album.thumbnail ? (
+                              <img
+                                src={album.thumbnail}
+                                alt={album.name}
+                                className="w-full h-full object-cover rounded-md shadow-lg"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
+                                <Music2 className="h-12 w-12 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div
+                              className="absolute top-1 right-1 rounded-full bg-background/90 p-0.5"
+                              title={album.matched ? 'Matched to catalog' : 'No match found — click to resolve'}
+                            >
+                              {album.matched ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-400" />
+                              )}
+                            </div>
+                          </div>
+                          <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                            {album.matched ? album.name : album.folderName}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {album.trackCount} tracks · Added {formatDate(album.addedAt)}
+                          </p>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
+                    <Library className="h-10 w-10 text-muted-foreground/50" />
+                    <p className="text-muted-foreground text-sm">No albums in your collection yet</p>
+                    <p className="text-muted-foreground text-xs">Scan your music folder to get started</p>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
+
+        <ResolveMatchDialog
+          open={resolveEntry !== null}
+          onOpenChange={(open) => !open && setResolveEntry(null)}
+          entry={resolveEntry}
+          onResolved={handleResolved}
+        />
 
       </div>
     </div>

@@ -10,12 +10,20 @@ export function AddSearchHistory(arg1) {
   return window['go']['main']['App']['AddSearchHistory'](arg1);
 }
 
+export function AddToCollection(arg1) {
+  return window['go']['main']['App']['AddToCollection'](arg1);
+}
+
 export function ClearDownloadHistory() {
   return window['go']['main']['App']['ClearDownloadHistory']();
 }
 
 export function ClearSearchHistory() {
   return window['go']['main']['App']['ClearSearchHistory']();
+}
+
+export function CountAudioFiles(arg1) {
+  return window['go']['main']['App']['CountAudioFiles'](arg1);
 }
 
 export function DownloadFiles(arg1, arg2) {
@@ -42,6 +50,10 @@ export function GetBookmarks() {
   return window['go']['main']['App']['GetBookmarks']();
 }
 
+export function GetCollection() {
+  return window['go']['main']['App']['GetCollection']();
+}
+
 export function GetDownloadHistory() {
   return window['go']['main']['App']['GetDownloadHistory']();
 }
@@ -50,12 +62,24 @@ export function GetFolder() {
   return window['go']['main']['App']['GetFolder']();
 }
 
+export function GetLibraryFolder() {
+  return window['go']['main']['App']['GetLibraryFolder']();
+}
+
 export function GetSearchHistory() {
   return window['go']['main']['App']['GetSearchHistory']();
 }
 
+export function IgnoreLibraryFolder(arg1) {
+  return window['go']['main']['App']['IgnoreLibraryFolder'](arg1);
+}
+
 export function IsBookmarked(arg1) {
   return window['go']['main']['App']['IsBookmarked'](arg1);
+}
+
+export function IsInCollection(arg1) {
+  return window['go']['main']['App']['IsInCollection'](arg1);
 }
 
 export function RecordAlbumDownload(arg1) {
@@ -66,12 +90,36 @@ export function RemoveBookmark(arg1) {
   return window['go']['main']['App']['RemoveBookmark'](arg1);
 }
 
+export function RemoveCollectionEntry(arg1) {
+  return window['go']['main']['App']['RemoveCollectionEntry'](arg1);
+}
+
+export function RemoveFromCollection(arg1) {
+  return window['go']['main']['App']['RemoveFromCollection'](arg1);
+}
+
+export function ResolveCollectionMatch(arg1, arg2) {
+  return window['go']['main']['App']['ResolveCollectionMatch'](arg1, arg2);
+}
+
+export function ScanLibrary() {
+  return window['go']['main']['App']['ScanLibrary']();
+}
+
 export function SearchAlbums(arg1) {
   return window['go']['main']['App']['SearchAlbums'](arg1);
 }
 
+export function SelectAlbumFolder() {
+  return window['go']['main']['App']['SelectAlbumFolder']();
+}
+
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SelectLibraryFolder() {
+  return window['go']['main']['App']['SelectLibraryFolder']();
 }
 
 export function SetBaseURL(arg1) {

@@ -13,9 +13,10 @@ import (
 )
 
 type App struct {
-	ctx      context.Context
-	store    *Store
-	dlFolder string
+	ctx       context.Context
+	store     *Store
+	dlFolder  string
+	libFolder string
 }
 
 type ApiResponse[T any] struct {
@@ -45,6 +46,7 @@ func (a *App) startup(ctx context.Context) {
 
 	home, _ := os.UserHomeDir()
 	a.dlFolder = filepath.Join(home, "Downloads")
+	a.libFolder = filepath.Join(home, "Music")
 }
 
 func nowMillis() int64 {
@@ -217,4 +219,87 @@ func (a *App) AddBookmark(album BookmarkedAlbum) {
 
 func (a *App) RemoveBookmark(vtName string) {
 	a.store.RemoveBookmark(vtName)
+}
+
+// --- Collection ---
+
+func (a *App) GetLibraryFolder() string {
+	return a.libFolder
+}
+
+func (a *App) SelectLibraryFolder() string {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select Music Library Folder",
+		DefaultDirectory: a.libFolder,
+	})
+	if err != nil || dir == "" {
+		return a.libFolder
+	}
+	a.libFolder = dir
+	return dir
+}
+
+func (a *App) ScanLibrary() ApiResponse[[]CollectionAlbum] {
+	if a.libFolder == "" {
+		return ApiResponse[[]CollectionAlbum]{Success: false, Error: "No library folder set"}
+	}
+
+	known := make(map[string]bool)
+	for _, c := range a.store.GetCollection() {
+		known[c.LocalPath] = true
+	}
+	for _, p := range a.store.GetIgnoredFolders() {
+		known[p] = true
+	}
+
+	entries, err := ScanLibraryFolder(a.libFolder, known)
+	if err != nil {
+		return ApiResponse[[]CollectionAlbum]{Success: false, Error: err.Error()}
+	}
+
+	a.store.AddCollectionEntries(entries)
+	return ApiResponse[[]CollectionAlbum]{Success: true, Data: a.store.GetCollection()}
+}
+
+func (a *App) GetCollection() []CollectionAlbum {
+	return a.store.GetCollection()
+}
+
+func (a *App) ResolveCollectionMatch(localPath string, album Album) {
+	a.store.ResolveCollectionMatch(localPath, album.VtName, album.Title, album.Thumbnail)
+}
+
+func (a *App) RemoveCollectionEntry(localPath string) {
+	a.store.RemoveCollectionEntry(localPath)
+}
+
+func (a *App) IgnoreLibraryFolder(path string) {
+	a.store.IgnoreFolder(path)
+}
+
+func (a *App) IsInCollection(vtName string) bool {
+	return a.store.IsInCollection(vtName)
+}
+
+func (a *App) AddToCollection(album CollectionAlbum) {
+	a.store.AddToCollection(album)
+}
+
+func (a *App) RemoveFromCollection(vtName string) {
+	a.store.RemoveFromCollection(vtName)
+}
+
+func (a *App) SelectAlbumFolder() string {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select folder containing this album",
+		DefaultDirectory: a.libFolder,
+	})
+	if err != nil {
+		return ""
+	}
+	return dir
+}
+
+func (a *App) CountAudioFiles(path string) int {
+	return countAudioFiles(path, 3)
 }
