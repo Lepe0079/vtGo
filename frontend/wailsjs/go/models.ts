@@ -170,6 +170,24 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class BookmarkedAlbum {
+	    vtName: string;
+	    name: string;
+	    thumbnail?: string;
+	    bookmarkedAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BookmarkedAlbum(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.vtName = source["vtName"];
+	        this.name = source["name"];
+	        this.thumbnail = source["thumbnail"];
+	        this.bookmarkedAt = source["bookmarkedAt"];
+	    }
+	}
 	export class DownloadedAlbum {
 	    vtName: string;
 	    name: string;

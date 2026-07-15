@@ -1,17 +1,19 @@
 import { useState, useEffect, useMemo, useRef, FormEvent, ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, X, Clock, Music2, AlertCircle, Settings, ArrowUpDown } from 'lucide-react'
+import { Search, X, Clock, Music2, AlertCircle, Settings, ArrowUpDown, Bookmark } from 'lucide-react'
 import {
   SearchAlbums,
   GetDownloadHistory,
   GetSearchHistory,
   AddSearchHistory,
   ClearSearchHistory,
+  GetBookmarks,
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
 type SortBy = 'title' | 'date' | 'system'
+type LibraryTab = 'recent' | 'bookmarks'
 
 interface LocationState {
   search?: string
@@ -33,13 +35,16 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
   const [status, setStatus] = useState<Status>(state?.albums?.length ? 'done' : 'idle')
   const [error, setError] = useState<string>('')
   const [downloadHistory, setDownloadHistory] = useState<main.DownloadedAlbum[]>([])
+  const [bookmarks, setBookmarks] = useState<main.BookmarkedAlbum[]>([])
   const [searchHistory, setSearchHistory] = useState<main.SearchHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [sortBy, setSortBy] = useState<SortBy>('title')
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>('recent')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     GetDownloadHistory().then(setDownloadHistory).catch(console.error)
+    GetBookmarks().then(setBookmarks).catch(console.error)
     GetSearchHistory().then(setSearchHistory).catch(console.error)
   }, [])
 
@@ -278,7 +283,7 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
         )}
 
         {/* Welcome / idle */}
-        {status === 'idle' && downloadHistory.length === 0 && (
+        {status === 'idle' && downloadHistory.length === 0 && bookmarks.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Search className="h-16 w-16 text-muted-foreground/50 mb-4" />
             <h2 className="text-xl font-semibold mb-2">Search for soundtracks</h2>
@@ -286,35 +291,103 @@ export default function Home({ baseUrl, onOpenBaseUrlSettings }: HomeProps) {
           </div>
         )}
 
-        {/* Recently Downloaded — always show when available */}
-        {downloadHistory.length > 0 && status !== 'loading' && albums.length === 0 && (
+        {/* Library tabs (Recently Downloaded / Bookmarked) */}
+        {(downloadHistory.length > 0 || bookmarks.length > 0) && status !== 'loading' && albums.length === 0 && (
           <section>
-            <h2 className="text-2xl font-bold mb-4">Recently Downloaded</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {downloadHistory.map((album) => (
-                <button
-                  key={album.vtName}
-                  onClick={() => navigate(`/album/${album.vtName}`)}
-                  className="group p-4 rounded-lg bg-card/50 hover:bg-card transition-all duration-200 text-left"
-                >
-                  <div className="relative aspect-square mb-3">
-                    {album.thumbnail ? (
-                      <img src={album.thumbnail} alt={album.name} className="w-full h-full object-cover rounded-md shadow-lg" />
-                    ) : (
-                      <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
-                        <Music2 className="h-12 w-12 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                    {album.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {album.trackCount} tracks · {formatDate(album.lastDownloadedAt)}
-                  </p>
-                </button>
-              ))}
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setLibraryTab('recent')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  libraryTab === 'recent'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Recently Downloaded
+              </button>
+              <button
+                type="button"
+                onClick={() => setLibraryTab('bookmarks')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  libraryTab === 'bookmarks'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Bookmarked
+              </button>
             </div>
+
+            {libraryTab === 'recent' && (
+              downloadHistory.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {downloadHistory.map((album) => (
+                    <button
+                      key={album.vtName}
+                      onClick={() => navigate(`/album/${album.vtName}`)}
+                      className="group p-4 rounded-lg bg-card/50 hover:bg-card transition-all duration-200 text-left"
+                    >
+                      <div className="relative aspect-square mb-3">
+                        {album.thumbnail ? (
+                          <img src={album.thumbnail} alt={album.name} className="w-full h-full object-cover rounded-md shadow-lg" />
+                        ) : (
+                          <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
+                            <Music2 className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                        {album.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {album.trackCount} tracks · {formatDate(album.lastDownloadedAt)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
+                  <Music2 className="h-10 w-10 text-muted-foreground/50" />
+                  <p className="text-muted-foreground text-sm">No downloads yet</p>
+                </div>
+              )
+            )}
+
+            {libraryTab === 'bookmarks' && (
+              bookmarks.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {bookmarks.map((album) => (
+                    <button
+                      key={album.vtName}
+                      onClick={() => navigate(`/album/${album.vtName}`)}
+                      className="group p-4 rounded-lg bg-card/50 hover:bg-card transition-all duration-200 text-left"
+                    >
+                      <div className="relative aspect-square mb-3">
+                        {album.thumbnail ? (
+                          <img src={album.thumbnail} alt={album.name} className="w-full h-full object-cover rounded-md shadow-lg" />
+                        ) : (
+                          <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
+                            <Music2 className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                        {album.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Bookmark className="h-3 w-3 fill-current" /> {formatDate(album.bookmarkedAt)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
+                  <Bookmark className="h-10 w-10 text-muted-foreground/50" />
+                  <p className="text-muted-foreground text-sm">No bookmarked albums yet</p>
+                </div>
+              )
+            )}
           </section>
         )}
 

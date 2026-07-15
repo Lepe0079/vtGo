@@ -200,3 +200,21 @@ func (a *App) AddSearchHistory(query string) []SearchHistoryItem {
 func (a *App) ClearSearchHistory() {
 	a.store.ClearSearchHistory()
 }
+
+// --- Bookmarks ---
+
+func (a *App) GetBookmarks() []BookmarkedAlbum {
+	return a.store.GetBookmarks()
+}
+
+func (a *App) IsBookmarked(vtName string) bool {
+	return a.store.IsBookmarked(vtName)
+}
+
+func (a *App) AddBookmark(album BookmarkedAlbum) {
+	a.store.AddBookmark(album)
+}
+
+func (a *App) RemoveBookmark(vtName string) {
+	a.store.RemoveBookmark(vtName)
+}

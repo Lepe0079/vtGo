@@ -22,9 +22,17 @@ type SearchHistoryItem struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
+type BookmarkedAlbum struct {
+	VtName       string  `json:"vtName"`
+	Name         string  `json:"name"`
+	Thumbnail    *string `json:"thumbnail"`
+	BookmarkedAt int64   `json:"bookmarkedAt"`
+}
+
 type storeData struct {
 	DownloadHistory []DownloadedAlbum   `json:"downloadHistory"`
 	SearchHistory   []SearchHistoryItem `json:"searchHistory"`
+	Bookmarks       []BookmarkedAlbum   `json:"bookmarks"`
 	BaseURL         string              `json:"baseURL"`
 }
 
@@ -60,6 +68,9 @@ func (s *Store) load() {
 	}
 	if s.data.SearchHistory == nil {
 		s.data.SearchHistory = []SearchHistoryItem{}
+	}
+	if s.data.Bookmarks == nil {
+		s.data.Bookmarks = []BookmarkedAlbum{}
 	}
 }
 
@@ -144,5 +155,39 @@ func (s *Store) GetBaseURL() string {
 
 func (s *Store) SetBaseURL(url string) {
 	s.data.BaseURL = url
+	s.save()
+}
+
+func (s *Store) GetBookmarks() []BookmarkedAlbum {
+	return s.data.Bookmarks
+}
+
+func (s *Store) IsBookmarked(vtName string) bool {
+	for _, b := range s.data.Bookmarks {
+		if b.VtName == vtName {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) AddBookmark(album BookmarkedAlbum) {
+	for _, b := range s.data.Bookmarks {
+		if b.VtName == album.VtName {
+			return
+		}
+	}
+	s.data.Bookmarks = append([]BookmarkedAlbum{album}, s.data.Bookmarks...)
+	s.save()
+}
+
+func (s *Store) RemoveBookmark(vtName string) {
+	filtered := make([]BookmarkedAlbum, 0, len(s.data.Bookmarks))
+	for _, b := range s.data.Bookmarks {
+		if b.VtName != vtName {
+			filtered = append(filtered, b)
+		}
+	}
+	s.data.Bookmarks = filtered
 	s.save()
 }

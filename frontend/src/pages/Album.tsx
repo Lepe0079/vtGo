@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, MouseEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Download, Check, FolderOpen, Image, FolderPlus } from 'lucide-react'
+import { ArrowLeft, Download, Check, FolderOpen, Image, FolderPlus, Bookmark } from 'lucide-react'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import {
   GetAlbum,
@@ -10,6 +10,9 @@ import {
   DownloadSingle,
   RecordAlbumDownload,
   GetAlbumDownloadedTracks,
+  IsBookmarked,
+  AddBookmark,
+  RemoveBookmark,
 } from '../../wailsjs/go/main/App'
 import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
@@ -35,6 +38,7 @@ export default function Album() {
   const [error, setError] = useState<string | null>(null)
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
   const [downloadedTracks, setDownloadedTracks] = useState<Set<string>>(new Set())
+  const [bookmarked, setBookmarked] = useState<boolean>(false)
 
   const fetchAlbum = async (title: string) => {
     setLoading(true)
@@ -65,6 +69,10 @@ export default function Album() {
           if (urls.length > 0) setDownloadedTracks(new Set(urls))
         })
         .catch((err: Error) => console.error('Failed to load downloaded tracks:', err))
+
+      IsBookmarked(vtname)
+        .then(setBookmarked)
+        .catch((err: Error) => console.error('Failed to load bookmark state:', err))
     }
   }, [vtname])
 
@@ -169,6 +177,23 @@ export default function Album() {
     navigate('/home', { state: locationState })
   }
 
+  const toggleBookmark = () => {
+    if (!vtname || !album) return
+
+    if (bookmarked) {
+      RemoveBookmark(vtname).catch(console.error)
+      setBookmarked(false)
+    } else {
+      AddBookmark({
+        vtName: vtname,
+        name: album.name,
+        thumbnail: album.albumArt[0] || undefined,
+        bookmarkedAt: Date.now(),
+      }).catch(console.error)
+      setBookmarked(true)
+    }
+  }
+
   const trackCount = album?.tracks.filter((t) => t.links.download).length || 0
   const downloadedCount = downloadedTracks.size
 
@@ -219,7 +244,20 @@ export default function Album() {
 
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">Album</p>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 truncate">{album?.name}</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight truncate">{album?.name}</h1>
+              <button
+                onClick={toggleBookmark}
+                title={bookmarked ? 'Remove bookmark' : 'Bookmark album'}
+                className="p-2 rounded-full hover:bg-background/50 transition-colors shrink-0"
+              >
+                <Bookmark
+                  className={`h-6 w-6 transition-colors ${
+                    bookmarked ? 'fill-primary text-primary' : 'text-muted-foreground'
+                  }`}
+                />
+              </button>
+            </div>
             <p className="text-sm text-muted-foreground">
               {trackCount} tracks
               {downloadedCount > 0 && (

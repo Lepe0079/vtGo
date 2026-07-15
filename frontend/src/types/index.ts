@@ -48,3 +48,10 @@ export interface ISearchHistoryItem {
   query: string
   timestamp: number
 }
+
+export interface IBookmarkedAlbum {
+  vtName: string
+  name: string
+  thumbnail: string | undefined
+  bookmarkedAt: number
+}
