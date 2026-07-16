@@ -125,3 +125,7 @@ export function SelectLibraryFolder() {
 export function SetBaseURL(arg1) {
   return window['go']['main']['App']['SetBaseURL'](arg1);
 }
+
+export function TrackFilename(arg1) {
+  return window['go']['main']['App']['TrackFilename'](arg1);
+}

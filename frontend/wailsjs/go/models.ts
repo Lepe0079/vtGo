@@ -256,7 +256,7 @@ export namespace main {
 	    downloadedAt: number;
 	    lastDownloadedAt: number;
 	    trackCount: number;
-	    downloadedTrackUrls: string[];
+	    downloadedTrackUrls: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
 	        return new DownloadedAlbum(source);

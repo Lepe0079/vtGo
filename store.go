@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -9,13 +10,13 @@ import (
 )
 
 type DownloadedAlbum struct {
-	VtName              string   `json:"vtName"`
-	Name                string   `json:"name"`
-	Thumbnail           *string  `json:"thumbnail"`
-	DownloadedAt        int64    `json:"downloadedAt"`
-	LastDownloadedAt    int64    `json:"lastDownloadedAt"`
-	TrackCount          int      `json:"trackCount"`
-	DownloadedTrackUrls []string `json:"downloadedTrackUrls"`
+	VtName              string            `json:"vtName"`
+	Name                string            `json:"name"`
+	Thumbnail           *string           `json:"thumbnail"`
+	DownloadedAt        int64             `json:"downloadedAt"`
+	LastDownloadedAt    int64             `json:"lastDownloadedAt"`
+	TrackCount          int               `json:"trackCount"`
+	DownloadedTrackUrls map[string]string `json:"downloadedTrackUrls"` // track URL -> local file path
 }
 
 type SearchHistoryItem struct {
@@ -37,6 +38,7 @@ type storeData struct {
 	Collection      []CollectionAlbum   `json:"collection"`
 	IgnoredFolders  []string            `json:"ignoredFolders"`
 	BaseURL         string              `json:"baseURL"`
+	LibraryFolder   string              `json:"libraryFolder"`
 }
 
 type Store struct {
@@ -64,7 +66,9 @@ func (s *Store) load() {
 		return
 	}
 	if err := json.Unmarshal(b, &s.data); err != nil {
-		s.data = storeData{}
+		// downloadedTrackUrls used to be a []string; fall back to migrating that
+		// shape instead of discarding the rest of the store (bookmarks, collection, etc).
+		s.data = migrateStoreData(b)
 	}
 	if s.data.DownloadHistory == nil {
 		s.data.DownloadHistory = []DownloadedAlbum{}
@@ -83,6 +87,73 @@ func (s *Store) load() {
 	}
 }
 
+// migrateStoreData handles store.json files written before downloadedTrackUrls
+// changed from []string to map[string]string. Legacy entries are kept with an
+// empty local path, which GetAlbumDownloadedTracks treats as unverifiable and
+// skips the disk check for, rather than dropping the user's download history.
+func migrateStoreData(b []byte) storeData {
+	type legacyDownloadedAlbum struct {
+		VtName              string          `json:"vtName"`
+		Name                string          `json:"name"`
+		Thumbnail           *string         `json:"thumbnail"`
+		DownloadedAt        int64           `json:"downloadedAt"`
+		LastDownloadedAt    int64           `json:"lastDownloadedAt"`
+		TrackCount          int             `json:"trackCount"`
+		DownloadedTrackUrls json.RawMessage `json:"downloadedTrackUrls"`
+	}
+	type legacyStoreData struct {
+		DownloadHistory []legacyDownloadedAlbum `json:"downloadHistory"`
+		SearchHistory   []SearchHistoryItem     `json:"searchHistory"`
+		Bookmarks       []BookmarkedAlbum       `json:"bookmarks"`
+		Collection      []CollectionAlbum       `json:"collection"`
+		IgnoredFolders  []string                `json:"ignoredFolders"`
+		BaseURL         string                  `json:"baseURL"`
+		LibraryFolder   string                  `json:"libraryFolder"`
+	}
+
+	var legacy legacyStoreData
+	if err := json.Unmarshal(b, &legacy); err != nil {
+		return storeData{}
+	}
+
+	data := storeData{
+		SearchHistory:  legacy.SearchHistory,
+		Bookmarks:      legacy.Bookmarks,
+		Collection:     legacy.Collection,
+		IgnoredFolders: legacy.IgnoredFolders,
+		BaseURL:        legacy.BaseURL,
+		LibraryFolder:  legacy.LibraryFolder,
+	}
+
+	for _, h := range legacy.DownloadHistory {
+		album := DownloadedAlbum{
+			VtName:           h.VtName,
+			Name:             h.Name,
+			Thumbnail:        h.Thumbnail,
+			DownloadedAt:     h.DownloadedAt,
+			LastDownloadedAt: h.LastDownloadedAt,
+			TrackCount:       h.TrackCount,
+		}
+
+		var urlMap map[string]string
+		if err := json.Unmarshal(h.DownloadedTrackUrls, &urlMap); err == nil {
+			album.DownloadedTrackUrls = urlMap
+		} else {
+			var urlList []string
+			if err := json.Unmarshal(h.DownloadedTrackUrls, &urlList); err == nil {
+				urlMap = make(map[string]string, len(urlList))
+				for _, u := range urlList {
+					urlMap[u] = ""
+				}
+				album.DownloadedTrackUrls = urlMap
+			}
+		}
+		data.DownloadHistory = append(data.DownloadHistory, album)
+	}
+
+	return data
+}
+
 func (s *Store) save() {
 	b, _ := json.MarshalIndent(s.data, "", "  ")
 	os.WriteFile(s.path, b, 0644)
@@ -97,17 +168,10 @@ func (s *Store) RecordAlbumDownload(album DownloadedAlbum) {
 		if a.VtName == album.VtName {
 			s.data.DownloadHistory[i].LastDownloadedAt = album.LastDownloadedAt
 			s.data.DownloadHistory[i].TrackCount += album.TrackCount
-			existing := make(map[string]bool)
-			for _, u := range s.data.DownloadHistory[i].DownloadedTrackUrls {
-				existing[u] = true
+			if s.data.DownloadHistory[i].DownloadedTrackUrls == nil {
+				s.data.DownloadHistory[i].DownloadedTrackUrls = map[string]string{}
 			}
-			for _, u := range album.DownloadedTrackUrls {
-				if !existing[u] {
-					s.data.DownloadHistory[i].DownloadedTrackUrls = append(
-						s.data.DownloadHistory[i].DownloadedTrackUrls, u,
-					)
-				}
-			}
+			maps.Copy(s.data.DownloadHistory[i].DownloadedTrackUrls, album.DownloadedTrackUrls)
 			s.save()
 			return
 		}
@@ -116,14 +180,32 @@ func (s *Store) RecordAlbumDownload(album DownloadedAlbum) {
 	s.save()
 }
 
+// GetAlbumDownloadedTracks returns the URLs of tracks still present on disk for
+// the given album, pruning any recorded track whose local file no longer exists.
 func (s *Store) GetAlbumDownloadedTracks(vtName string) []string {
-	for _, a := range s.data.DownloadHistory {
-		if a.VtName == vtName {
-			if a.DownloadedTrackUrls == nil {
-				return []string{}
-			}
-			return a.DownloadedTrackUrls
+	for i, a := range s.data.DownloadHistory {
+		if a.VtName != vtName {
+			continue
 		}
+		urls := make([]string, 0, len(a.DownloadedTrackUrls))
+		stale := false
+		for url, path := range s.data.DownloadHistory[i].DownloadedTrackUrls {
+			if path == "" {
+				// Legacy entry recorded before per-track paths existed; can't verify.
+				urls = append(urls, url)
+				continue
+			}
+			if _, err := os.Stat(path); err != nil {
+				delete(s.data.DownloadHistory[i].DownloadedTrackUrls, url)
+				stale = true
+				continue
+			}
+			urls = append(urls, url)
+		}
+		if stale {
+			s.save()
+		}
+		return urls
 	}
 	return []string{}
 }
@@ -167,6 +249,15 @@ func (s *Store) SetBaseURL(url string) {
 	s.save()
 }
 
+func (s *Store) GetLibraryFolder() string {
+	return s.data.LibraryFolder
+}
+
+func (s *Store) SetLibraryFolder(path string) {
+	s.data.LibraryFolder = path
+	s.save()
+}
+
 func (s *Store) GetBookmarks() []BookmarkedAlbum {
 	return s.data.Bookmarks
 }
@@ -203,6 +294,11 @@ func (s *Store) RemoveBookmark(vtName string) {
 
 func (s *Store) GetCollection() []CollectionAlbum {
 	return s.data.Collection
+}
+
+func (s *Store) SetCollection(entries []CollectionAlbum) {
+	s.data.Collection = entries
+	s.save()
 }
 
 func (s *Store) AddCollectionEntries(entries []CollectionAlbum) {

@@ -63,3 +63,5 @@ export function SelectFolder():Promise<string>;
 export function SelectLibraryFolder():Promise<string>;
 
 export function SetBaseURL(arg1:string):Promise<void>;
+
+export function TrackFilename(arg1:string):Promise<string>;

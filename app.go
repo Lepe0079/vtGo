@@ -47,6 +47,9 @@ func (a *App) startup(ctx context.Context) {
 	home, _ := os.UserHomeDir()
 	a.dlFolder = filepath.Join(home, "Downloads")
 	a.libFolder = filepath.Join(home, "Music")
+	if stored := a.store.GetLibraryFolder(); stored != "" {
+		a.libFolder = stored
+	}
 }
 
 func nowMillis() int64 {
@@ -165,6 +168,12 @@ func (a *App) DownloadFiles(path string, tracks []string) {
 	}()
 }
 
+// TrackFilename returns the filename DownloadFile will save a track's URL to,
+// so the frontend can record the exact local path for a download before it starts.
+func (a *App) TrackFilename(trackURL string) string {
+	return urlFilename(trackURL)
+}
+
 func (a *App) DownloadSingle(trackURL string) {
 	go func() {
 		DownloadFile(a.ctx, trackURL, a.dlFolder, nil)
@@ -236,6 +245,7 @@ func (a *App) SelectLibraryFolder() string {
 		return a.libFolder
 	}
 	a.libFolder = dir
+	a.store.SetLibraryFolder(dir)
 	return dir
 }
 
@@ -244,8 +254,11 @@ func (a *App) ScanLibrary() ApiResponse[[]CollectionAlbum] {
 		return ApiResponse[[]CollectionAlbum]{Success: false, Error: "No library folder set"}
 	}
 
+	verified, _ := VerifyCollectionEntries(a.store.GetCollection())
+	a.store.SetCollection(verified)
+
 	known := make(map[string]bool)
-	for _, c := range a.store.GetCollection() {
+	for _, c := range verified {
 		known[c.LocalPath] = true
 	}
 	for _, p := range a.store.GetIgnoredFolders() {

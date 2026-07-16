@@ -10,6 +10,7 @@ import {
   DownloadSingle,
   RecordAlbumDownload,
   GetAlbumDownloadedTracks,
+  TrackFilename,
   IsBookmarked,
   AddBookmark,
   RemoveBookmark,
@@ -140,7 +141,7 @@ export default function Album() {
     }
   }
 
-  const downloadSelected = (e: MouseEvent<HTMLButtonElement>) => {
+  const downloadSelected = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
 
     let tracksToDownload = Array.from(selectedTracks)
@@ -148,7 +149,16 @@ export default function Album() {
       tracksToDownload = [...tracksToDownload, ...album.albumArt]
     }
 
+    const path = makeFolder && album ? `${dlFolder}/${album.name}` : dlFolder
+
     if (vtname && album && selectedTracks.size > 0) {
+      const urls = Array.from(selectedTracks)
+      const filenames = await Promise.all(urls.map((url) => TrackFilename(url)))
+      const downloadedTrackUrls: Record<string, string> = {}
+      urls.forEach((url, i) => {
+        downloadedTrackUrls[url] = `${path}/${filenames[i]}`
+      })
+
       RecordAlbumDownload({
         vtName: vtname,
         name: album.name,
@@ -156,11 +166,10 @@ export default function Album() {
         downloadedAt: Date.now(),
         lastDownloadedAt: Date.now(),
         trackCount: selectedTracks.size,
-        downloadedTrackUrls: Array.from(selectedTracks),
+        downloadedTrackUrls,
       })
     }
 
-    const path = makeFolder && album ? `${dlFolder}/${album.name}` : dlFolder
     DownloadFiles(path, tracksToDownload)
   }
 

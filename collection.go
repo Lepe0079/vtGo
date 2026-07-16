@@ -57,6 +57,29 @@ func countAudioFiles(root string, maxDepth int) int {
 	return count
 }
 
+// VerifyCollectionEntries checks each existing collection entry against disk,
+// refreshing its track count and dropping any entry whose folder is gone or no
+// longer contains audio files. It returns the surviving entries plus the local
+// paths of any that were dropped.
+func VerifyCollectionEntries(entries []CollectionAlbum) (kept []CollectionAlbum, removed []string) {
+	kept = make([]CollectionAlbum, 0, len(entries))
+	for _, e := range entries {
+		info, err := os.Stat(e.LocalPath)
+		if err != nil || !info.IsDir() {
+			removed = append(removed, e.LocalPath)
+			continue
+		}
+		count := countAudioFiles(e.LocalPath, 3)
+		if count == 0 {
+			removed = append(removed, e.LocalPath)
+			continue
+		}
+		e.TrackCount = count
+		kept = append(kept, e)
+	}
+	return kept, removed
+}
+
 // ScanLibraryFolder looks at the immediate subdirectories of root, skipping any
 // path present in knownPaths (already in the collection or explicitly ignored)
 // and any folder with no audio files. Each remaining folder is matched against
